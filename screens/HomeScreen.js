@@ -4,7 +4,7 @@ import ScreenContainer from "../components/ScreenContainer";
 import MenuCard from "../components/MenuCard";
 import menuItems from "../data/menuItems";
 
-export default function HomeScreen({ username, onSelectItem, onLogin, onLogout }) {
+export default function HomeScreen({ username, onSelectItem, onLogin, onLogout, cartCount, onOpenCart, onOpenKitchen }) {
   return (
     <ScreenContainer>
       <View style={styles.header}>
@@ -12,9 +12,14 @@ export default function HomeScreen({ username, onSelectItem, onLogin, onLogout }
           <Text style={styles.brand}>KUSINERA</Text>
           <Text style={styles.tagline}>Filipino comfort food</Text>
         </View>
-        <Pressable accessibilityRole="button" onPress={username ? onLogout : onLogin} style={styles.account}>
-          <Text style={styles.accountText}>{username ? "Log out" : "Log in"}</Text>
-        </Pressable>
+        <View style={styles.headerActions}>
+          <Pressable accessibilityRole="button" onPress={username ? onLogout : onLogin} style={styles.account}>
+            <Text style={styles.accountText}>{username ? "Log out" : "Log in"}</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" onPress={onOpenCart} style={styles.account}>
+            <Text style={styles.accountText}>Cart ({cartCount})</Text>
+          </Pressable>
+        </View>
       </View>
       <Text style={styles.greeting}>{username ? `Welcome, ${username}!` : "Welcome to our table"}</Text>
       <Text style={styles.title}>Something delicious{"\n"}is waiting.</Text>
@@ -26,12 +31,16 @@ export default function HomeScreen({ username, onSelectItem, onLogin, onLogout }
       {menuItems.map((item) => (
         <MenuCard key={item.id} item={item} onPress={onSelectItem} />
       ))}
+      <Pressable accessibilityRole="button" onPress={onOpenKitchen} style={[styles.account, styles.kitchen]}>
+        <Text style={styles.accountText}>Staff &amp; kitchen</Text>
+      </Pressable>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
   header: {
+    flexWrap: "wrap",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -49,6 +58,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 4,
   },
+  headerActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "flex-end",
+    marginLeft: "auto",
+    gap: 8,
+  },
   account: {
     paddingVertical: 10,
     paddingHorizontal: 16,
@@ -56,6 +72,7 @@ const styles = StyleSheet.create({
     borderColor: "#6D0808",
     borderRadius: 20,
   },
+  kitchen: { alignSelf: "flex-start", marginTop: 12 },
   accountText: {
     color: "#6D0808",
     fontWeight: "600",

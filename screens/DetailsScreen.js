@@ -3,7 +3,7 @@ import { Image, StyleSheet, Text, View } from "react-native";
 import ScreenContainer from "../components/ScreenContainer";
 import AuthButton from "../components/authButton";
 
-export default function DetailsScreen({ item, id, onBack }) {
+export default function DetailsScreen({ item, id, onBack, onAddToCart, onOpenCart, cartCount, isLoggedIn }) {
   if (!item) {
     return (
       <ScreenContainer>
@@ -27,6 +27,10 @@ export default function DetailsScreen({ item, id, onBack }) {
         <Text style={styles.category}>{item.category}</Text>
         <Text style={styles.title}>{item.name}</Text>
         <Text style={styles.price}>PHP {item.price.toFixed(2)}</Text>
+        <View style={styles.actions}>
+          <AuthButton title={isLoggedIn ? "Add to cart" : "Log in to add to cart"} onPress={onAddToCart} />
+          <AuthButton title={`View cart (${cartCount})`} onPress={onOpenCart} />
+        </View>
       </View>
       <View style={styles.card}>
         <Text style={styles.id}>ID: {id}</Text>
@@ -86,6 +90,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     marginTop: 12,
   },
+  actions: { alignSelf: "stretch", marginTop: 8 },
   card: {
     backgroundColor: "#FFFFFF",
     borderRadius: 20,

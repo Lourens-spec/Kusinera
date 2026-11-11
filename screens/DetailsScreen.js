@@ -1,7 +1,9 @@
+import { Image, Text, View } from "../components/Themed";
 import React from "react";
-import { Image, StyleSheet, Text, View } from "react-native";
+import { StyleSheet } from "react-native";
 import ScreenContainer from "../components/ScreenContainer";
 import AuthButton from "../components/authButton";
+import MealCustomizer from "../components/MealCustomizer";
 
 export default function DetailsScreen({ item, id, onBack, onAddToCart, onOpenCart, cartCount, isLoggedIn }) {
   if (!item) {
@@ -15,21 +17,25 @@ export default function DetailsScreen({ item, id, onBack, onAddToCart, onOpenCar
   }
 
   return (
-    <ScreenContainer>
+    <ScreenContainer keyboardShouldPersistTaps="handled">
       <Text style={styles.eyebrow}>KUSINERA / MENU DETAILS</Text>
       <View style={styles.hero}>
-        <Image
+        {item.image && <Image
           source={item.image}
           style={styles.image}
           resizeMode="contain"
           accessibilityLabel={item.name}
-        />
+        />}
         <Text style={styles.category}>{item.category}</Text>
         <Text style={styles.title}>{item.name}</Text>
         <Text style={styles.price}>PHP {item.price.toFixed(2)}</Text>
         <View style={styles.actions}>
-          <AuthButton title={isLoggedIn ? "Add to cart" : "Log in to add to cart"} onPress={onAddToCart} />
-          <AuthButton title={`View cart (${cartCount})`} onPress={onOpenCart} />
+          {item.available === false ? (
+            <Text accessibilityLiveRegion="polite" style={styles.description}>This dish is sold out.</Text>
+          ) : (
+            <MealCustomizer key={item.id} item={item} isLoggedIn={isLoggedIn} onAdd={onAddToCart} />
+          )}
+          <AuthButton title={`View tray (${cartCount})`} onPress={onOpenCart} />
         </View>
       </View>
       <View style={styles.card}>
@@ -51,90 +57,18 @@ export default function DetailsScreen({ item, id, onBack, onAddToCart, onOpenCar
 }
 
 const styles = StyleSheet.create({
-  eyebrow: {
-    color: "#6D0808",
-    fontSize: 12,
-    fontWeight: "700",
-    letterSpacing: 1,
-    marginVertical: 12,
-  },
-  hero: {
-    alignItems: "center",
-    backgroundColor: "#F8ECE8",
-    borderRadius: 24,
-    padding: 20,
-    marginTop: 8,
-    marginBottom: 20,
-  },
-  category: {
-    color: "#716767",
-    fontSize: 14,
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  image: {
-    width: "100%",
-    height: "auto",
-    aspectRatio: 1,
-    borderRadius: 16,
-  },
-  title: {
-    color: "#292323",
-    fontSize: 30,
-    fontWeight: "800",
-    textAlign: "center",
-  },
-  price: {
-    color: "#6D0808",
-    fontSize: 22,
-    fontWeight: "700",
-    marginTop: 12,
-  },
+  eyebrow: { color: "#6D0808", fontSize: 12, fontWeight: "700", letterSpacing: 1, marginVertical: 12 },
+  hero: { alignItems: "center", backgroundColor: "#F8ECE8", borderRadius: 24, padding: 20, marginTop: 8, marginBottom: 20 },
+  category: { color: "#716767", fontSize: 14, marginTop: 16, marginBottom: 8 },
+  image: { width: "100%", height: "auto", aspectRatio: 1, borderRadius: 16 },
+  title: { color: "#292323", fontSize: 30, fontWeight: "800", textAlign: "center" },
+  price: { color: "#6D0808", fontSize: 22, fontWeight: "700", marginTop: 12 },
   actions: { alignSelf: "stretch", marginTop: 8 },
-  card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: 24,
-    marginBottom: 10,
-  },
-  id: {
-    color: "#6D0808",
-    fontSize: 13,
-    fontWeight: "700",
-    marginBottom: 18,
-  },
-  heading: {
-    color: "#292323",
-    fontSize: 18,
-    fontWeight: "700",
-    marginBottom: 10,
-  },
-  description: {
-    color: "#625B5B",
-    fontSize: 16,
-    lineHeight: 25,
-    marginVertical: 8,
-  },
-  facts: {
-    borderTopWidth: 1,
-    borderTopColor: "#EEE8E8",
-    marginTop: 14,
-    paddingVertical: 18,
-    gap: 8,
-  },
-  fact: {
-    color: "#625B5B",
-    fontSize: 14,
-  },
-  ingredient: {
-    color: "#625B5B",
-    fontSize: 15,
-    lineHeight: 25,
-  },
-  note: {
-    color: "#716767",
-    textAlign: "center",
-    fontSize: 12,
-    marginTop: 20,
-  },
+  card: { backgroundColor: "#FFFFFF", borderRadius: 20, padding: 24, marginBottom: 10 },
+  id: { color: "#6D0808", fontSize: 13, fontWeight: "700", marginBottom: 18 },
+  heading: { color: "#292323", fontSize: 18, fontWeight: "700", marginBottom: 10 },
+  description: { color: "#625B5B", fontSize: 16, lineHeight: 25, marginVertical: 8 },
+  facts: { borderTopWidth: 1, borderTopColor: "#EEE8E8", marginTop: 14, paddingVertical: 18, gap: 8 },
+  fact: { color: "#625B5B", fontSize: 14 },
+  ingredient: { color: "#625B5B", fontSize: 15, lineHeight: 25 },
 });

@@ -1,68 +1,40 @@
+import { Feather, MaterialCommunityIcons, KeyboardAvoidingView, Pressable, ScrollView, Text, View, SafeAreaView } from "./Themed";
 import React from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Platform } from "react-native";
 
-export default function AuthLayout({ title, subtitle, children }) {
+export default function AuthLayout({ styles, goToWelcome, header, children, bounces = true }) {
   return (
-    <KeyboardAvoidingView style={styles.background} behavior={Platform.OS === "ios" ? "padding" : "height"}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <View style={styles.container}>
-          <Text style={styles.brand}>KUSINERA</Text>
-          <Text style={styles.tagline}>Restaurant</Text>
-          <View style={styles.card}>
-            <Text style={styles.title}>{title}</Text>
-            <Text style={styles.subtitle}>{subtitle}</Text>
-            {children}
+    <SafeAreaView style={styles.background}>
+      <KeyboardAvoidingView style={styles.fill} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+        <ScrollView bounces={bounces} overScrollMode={bounces ? "auto" : "never"} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+          <View style={styles.page}>
+            <View style={styles.header}>
+              <View style={styles.top}>
+                <Text style={styles.brand}>KUSINERA</Text>
+                <Pressable accessibilityRole="button" accessibilityLabel="Back to welcome" onPress={goToWelcome} style={styles.close}>
+                  <Feather name="x" size={20} color="#FFF8ED" />
+                </Pressable>
+              </View>
+              {header}
+            </View>
+            <View style={styles.form}>
+              {children}
+              <View style={styles.footer}>
+                <MaterialCommunityIcons name="pot-steam-outline" size={16} color="#9B8370" />
+                <Text style={styles.footerLabel}>FROM OUR KITCHEN, WITH LOVE</Text>
+              </View>
+            </View>
           </View>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  background: {
-    flex: 1,
-    backgroundColor: "#E0E6F8",
-  },
-  content: {
-    flexGrow: 1,
-    justifyContent: "center",
-    paddingHorizontal: 24,
-    paddingVertical: 48,
-  },
-  container: {
-    width: "100%",
-    maxWidth: 440,
-    alignSelf: "center",
-  },
-  brand: {
-    color: "#6D0808",
-    textAlign: "center",
-    fontWeight: "800",
-    fontSize: 36,
-  },
-  tagline: {
-    color: "#6D0808",
-    textAlign: "center",
-    fontSize: 18,
-    marginBottom: 28,
-  },
-  card: {
-    backgroundColor: "white",
-    borderRadius: 20,
-    padding: 24,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: "700",
-    color: "#292323",
-    textAlign: "center",
-  },
-  subtitle: {
-    color: "#625B5B",
-    textAlign: "center",
-    marginTop: 8,
-    marginBottom: 24,
-    lineHeight: 21,
-  },
-});
+export function AuthDivider({ styles, label, style }) {
+  return <View style={[styles.divider, style]}><View style={styles.line} /><Text style={styles.details}>{label}</Text><View style={styles.line} /></View>;
+}
+
+export function AuthSubmit({ styles, label, onPress }) {
+  return <Pressable accessibilityRole="button" onPress={onPress} style={styles.submit}><Text style={styles.submitLabel}>{label}</Text><Feather name="arrow-right" size={16} color="#FFF8ED" /></Pressable>;
+}

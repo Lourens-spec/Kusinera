@@ -2,23 +2,24 @@ import React from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAuth } from "../../context/AuthContext";
 import { useCart } from "../../context/CartContext";
-import menuItems from "../../data/menuItems";
+import { useMenu } from "../../context/MenuContext";
 import DetailsScreen from "../../screens/DetailsScreen";
 
 export default function DetailsRoute() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
+  const { menuItems } = useMenu();
   const { currentUser } = useAuth();
-  const { count, changeQuantity } = useCart();
+  const { count, addMeal } = useCart();
   const item = menuItems.find((menuItem) => menuItem.id === id);
 
-  function addToCart() {
-    if (!item) return;
+  function addToCart({ quantity = 1, addOnIds = [], notes = "" } = {}) {
+    if (!item || item.available === false) return "This dish is sold out.";
     if (!currentUser) {
       router.push({ pathname: "/login", params: { dishId: item.id } });
-      return;
+      return "Log in to add this meal.";
     }
-    changeQuantity(item.id, 1);
+    return addMeal(item.id, quantity, addOnIds, notes);
   }
 
   function goBack() {

@@ -1,15 +1,19 @@
+import { Feather, Pressable, Text, TextInput, View } from "../Themed";
 import React from "react";
-import { Text, TextInput, View } from "react-native";
-import AuthButton from "../authButton";
 import styles from "./styles";
+import { useMenuGlass } from "../../styles/menuGlass";
 
 export function TableIdentification({ tableNumber, setTableNumber, hasTable }) {
+  const glass = useMenuGlass();
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, glass.surface]}>
       <View style={styles.row}>
-        <Text style={styles.name}>Table identification</Text>
+        <View style={styles.iconLabel}>
+          <Feather name="map-pin" size={16} color="#6D0808" />
+          <Text style={styles.name}>Table number</Text>
+        </View>
         <Text accessibilityLiveRegion="polite" style={hasTable ? styles.saved : styles.missing}>
-          {hasTable ? "Entered" : "Missing"}
+          {hasTable ? "Entered" : "Required"}
         </Text>
       </View>
       <TextInput
@@ -26,20 +30,41 @@ export function TableIdentification({ tableNumber, setTableNumber, hasTable }) {
   );
 }
 
-export function OrderPlacement({ hasItems, hasTable, placeOrder }) {
+export function OrderPlacement({ total, subtotal, deliveryFee, discount, isDelivery, detailsMessage, hasItems, hasTable, hasUnavailableItems, placeOrder }) {
+  const glass = useMenuGlass();
+  const canPlaceOrder = hasItems && hasTable && !hasUnavailableItems;
+
   return (
-    <View style={styles.card}>
-      <Text accessibilityRole="header" style={styles.name}>Order placement</Text>
-      {hasItems && hasTable ? (
+    <View style={[styles.card, glass.surface]}>
+      {(isDelivery || discount > 0) && hasItems && (
         <>
-          <Text style={styles.description}>Payment method: cash at the counter.</Text>
-          <AuthButton title="Place order" onPress={placeOrder} />
+          <View style={styles.row}><Text style={styles.description}>Subtotal</Text><Text style={styles.description}>₱{subtotal.toFixed(2)}</Text></View>
+          {isDelivery && <View style={styles.row}><Text style={styles.description}>Sample delivery fee</Text><Text style={styles.description}>₱{deliveryFee.toFixed(2)}</Text></View>}
+          {discount > 0 && <View style={styles.row}><Text style={styles.description}>KUSI50 discount</Text><Text style={styles.description}>−₱{discount.toFixed(2)}</Text></View>}
         </>
-      ) : (
+      )}
+      <View style={styles.row}>
+        <Text style={styles.name}>Total</Text>
+        <Text accessibilityLiveRegion="polite" style={styles.total}>₱{total.toFixed(2)}</Text>
+      </View>
+      <Text style={styles.description}>{isDelivery ? "Cash on delivery · pay the rider on arrival" : "Pay cash at the counter"}</Text>
+      {hasUnavailableItems && (
+        <Text accessibilityRole="alert" style={styles.accent}>Remove sold-out dishes from your tray to continue.</Text>
+      )}
+      {(!hasItems || !hasTable) && (
         <Text style={styles.description}>
-          {!hasItems ? "Add a dish to place an order." : "Enter your table number to place an order."}
+          {hasItems ? detailsMessage || "Enter your table number to place an order." : "Add a dish to place an order."}
         </Text>
       )}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ disabled: !canPlaceOrder }}
+        disabled={!canPlaceOrder}
+        onPress={placeOrder}
+        style={[styles.place, !canPlaceOrder && styles.disabledPlace]}
+      >
+        <Text style={[styles.placeLabel, !canPlaceOrder && styles.disabledLabel]}>{isDelivery ? "Place delivery order" : "Place order"}</Text>
+      </Pressable>
     </View>
   );
 }

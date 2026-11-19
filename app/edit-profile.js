@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { launchImageLibraryAsync } from "expo-image-picker";
 import EditProfileForm from "../components/EditProfileForm";
@@ -19,13 +19,24 @@ function ProfileEditor({ account, updateProfile }) {
   const { fromSettings } = useLocalSearchParams();
   const [displayName, setDisplayName] = useState(account.displayName ?? "");
   const [photoUri, setPhotoUri] = useState(account.photoUri ?? null);
+  const [photoBase64, setPhotoBase64] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
   const [error, setError] = useState("");
 
   const close = () => router.dismissTo(fromSettings === "1" ? "/settings" : "/profile");
 
-  function save() {
-    updateProfile({ displayName, photoUri });
-    close();
+  async function save() {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
+    setError("");
+    try {
+      await updateProfile({ displayName, photoUri, photoBase64 });
+      close();
+    } catch (failure) {
+      setError(failure.message || "Couldn’t save your profile. Please try again.");
+    } finally { savingRef.current = false; setSaving(false); }
   }
 
   async function choosePhoto() {
@@ -36,8 +47,9 @@ function ProfileEditor({ account, updateProfile }) {
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.6,
+        base64: true,
       });
-      if (!canceled) setPhotoUri(assets[0].uri);
+      if (!canceled && assets[0]) { setPhotoUri(assets[0].uri); setPhotoBase64(assets[0].base64); }
     } catch {
       setError("Couldn’t open that photo. Please try another image.");
     }
@@ -49,9 +61,10 @@ function ProfileEditor({ account, updateProfile }) {
       displayName={displayName}
       photoUri={photoUri}
       error={error}
+      saving={saving}
       onNameChange={setDisplayName}
       onChangePhoto={choosePhoto}
-      onRemovePhoto={() => setPhotoUri(null)}
+      onRemovePhoto={() => { setPhotoUri(null); setPhotoBase64(null); }}
       onSave={save}
       onCancel={close}
     />

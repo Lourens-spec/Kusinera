@@ -25,8 +25,8 @@ export default function EditDishRoute() {
     );
   }
 
-  function save(draft) {
-    const result = saveDish(draft, item?.id);
+  async function save(draft) {
+    const result = await saveDish(draft, item?.id);
     if (!result.error) router.dismissTo("/manage-menu");
     return result.error;
   }

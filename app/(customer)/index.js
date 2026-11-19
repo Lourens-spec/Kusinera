@@ -8,6 +8,7 @@ export default function HomeRoute() {
   const router = useRouter();
   const { currentUser, browsingMenu, exploreMenu } = useAuth();
 
+  if (currentUser?.role === "admin") return <Redirect href="/admin" />;
   if (currentUser?.role === "rider") return <Redirect href="/rider" />;
   if (currentUser?.role === "kitchen") return <Redirect href="/kitchen" />;
 

@@ -1,4 +1,7 @@
 import React, { createContext, useContext, useState } from "react";
+import { supabase } from "../lib/supabase";
+import { saveAccountProfile } from "../lib/profile";
+import { useFavorites } from "../lib/favorites";
 
 const AuthContext = createContext(null);
 
@@ -10,7 +13,7 @@ const demoAccounts = [
 ];
 
 export function AuthProvider({ children }) {
-  // This is a class prototype. Accounts reset when the app reloads.
+  // Keep local accounts available for the demo when Supabase is unconfigured.
   const [storedAccounts, setAccounts] = useState([]);
   const accounts = [
     ...demoAccounts,
@@ -20,50 +23,95 @@ export function AuthProvider({ children }) {
   const [browsingMenu, setBrowsingMenu] = useState(false);
   const [message, setMessage] = useState("");
 
-  const [favoritesByUser, setFavoritesByUser] = useState(() => new Map());
-  const favoriteIds = favoritesByUser.get(currentUser?.username) ?? [];
+  const favorites = useFavorites(currentUser);
 
-  function toggleFavorite(id) {
-    if (!currentUser) return;
+  async function register(account) {
+    if (supabase) {
+      const { data, error } = await supabase.auth.signUp({
+        email: account.email,
+        password: account.password,
+        options: { data: { username: account.username } },
+      });
+      if (error) {
+        if (error.code === "unexpected_failure") {
+          throw new Error("Couldn’t create the account. Try a different username.");
+        }
+        throw error;
+      }
+      if (data.session) {
+        const { error: signOutError } = await supabase.auth.signOut({ scope: "local" });
+        if (signOutError) throw signOutError;
+      }
+      setMessage(data.session
+        ? "Account created. You can now log in."
+        : "Check your email for a verification code before logging in.");
+      return { requiresVerification: !data.session, email: account.email.trim().toLowerCase() };
+    }
 
-    setFavoritesByUser((current) => {
-      const ids = current.get(currentUser.username) ?? [];
-      const nextIds = ids.includes(id) ? ids.filter((favoriteId) => favoriteId !== id) : [...ids, id];
-      return new Map(current).set(currentUser.username, nextIds);
-    });
-  }
-
-  function register(account) {
     setAccounts((current) => [...current, { ...account, role: "customer" }]);
     setMessage("Account created. You can now log in.");
   }
 
-  function login(account) {
+  async function login(identifier, password) {
+    const normalized = identifier.toLowerCase();
+    let account = supabase ? null : accounts.find(user => user.username.toLowerCase() === normalized && user.password === password);
+    if (supabase && !account) {
+      const { data, error } = normalized.includes("@")
+        ? await supabase.auth.signInWithPassword({ email: normalized, password })
+        : await signInWithUsername(identifier, password);
+      if (error) throw error;
+
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", data.user.id)
+        .single();
+      if (profileError) {
+        await supabase.auth.signOut({ scope: "local" });
+        throw new Error("Couldn’t load your account profile. Please try again.");
+      }
+      account = {
+        id: profile.id,
+        username: profile.username.toLowerCase(),
+        email: data.user.email,
+        displayName: profile.display_name || profile.username,
+        photoUri: profile.photo_uri || null,
+        role: profile.role,
+      };
+    }
+    if (!account) throw new Error("Incorrect username or password.");
     setCurrentUser(account);
     setMessage("");
+    return account;
   }
 
-  function updateProfile({ displayName, photoUri }) {
-    if (currentUser?.role !== "customer") return;
-
-    const username = currentUser.username;
-    const profile = { displayName: displayName.trim(), photoUri };
-    setAccounts((current) => current.map((account) =>
-      account.username === username ? { ...account, ...profile } : account
+  async function updateProfile({ displayName, photoUri, photoBase64 }) {
+    if (currentUser?.role !== "customer") throw new Error("Sign in as a customer to edit your profile.");
+    const user = currentUser;
+    if (supabase && !user.id) throw new Error("Sign in again with your Supabase account to save your profile.");
+    const name = displayName.trim();
+    if (name.length > 40) throw new Error("Use a display name of up to 40 characters.");
+    const profile = supabase && user.id
+      ? await saveAccountProfile(user.id, { displayName: name, photoUri, photoBase64 })
+      : { displayName: name, photoUri };
+    setAccounts(current => current.map(account =>
+      account.username === user.username ? { ...account, ...profile } : account
     ));
-    setCurrentUser((current) =>
-      current?.username === username ? { ...current, ...profile } : current
-    );
+    setCurrentUser(current => current && current.id === user.id && current.username === user.username
+      ? { ...current, ...profile } : current);
   }
 
   function logout() {
+    if (currentUser?.id && supabase) {
+      supabase.auth.signOut({ scope: "local" }).catch(() => {});
+    }
     setBrowsingMenu(false);
     setCurrentUser(null);
   }
 
   return (
     <AuthContext.Provider value={{
-      accounts, currentUser, message, setMessage, register, login, logout, updateProfile, favoriteIds, toggleFavorite,
+      accounts, currentUser, message, setMessage, register, login, logout, updateProfile, ...favorites,
       browsingMenu, exploreMenu: () => setBrowsingMenu(true),
     }}>
       {children}
@@ -73,5 +121,20 @@ export function AuthProvider({ children }) {
 
 export function useAuth() {
   return useContext(AuthContext);
+}
+
+async function signInWithUsername(username, password) {
+  const { data, error } = await supabase.functions.invoke("username-login", {
+    body: { username, password },
+  });
+  if (error) {
+    const response = error.context;
+    const body = await response?.json?.().catch(() => null);
+    throw new Error(body?.error || "Username sign-in is unavailable. You can still sign in with your email.");
+  }
+  return supabase.auth.setSession({
+    access_token: data.access_token,
+    refresh_token: data.refresh_token,
+  });
 }
 

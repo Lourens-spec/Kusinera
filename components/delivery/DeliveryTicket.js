@@ -7,9 +7,10 @@ import { deliveryAddress } from "../../utils/delivery";
 import { lineUnitPrice } from "../../utils/mealOptions";
 import MealNotes from "../MealNotes";
 
-export default function DeliveryTicket({ order, children, surfaceStyle }) {
+export default function DeliveryTicket({ order, children, surfaceStyle, riderName }) {
   const { accounts } = useAuth();
   const rider = accounts.find((account) => account.username === order.rider);
+  const assignedName = riderName || rider?.displayName || rider?.username;
   const cancelled = order.status === "Cancelled";
 
   return (
@@ -18,10 +19,12 @@ export default function DeliveryTicket({ order, children, surfaceStyle }) {
         <Text style={deliveryStyles.heading}>Order #{order.id} · Delivery</Text>
         <Text accessibilityLiveRegion="polite" style={deliveryStyles.badge}>{order.status}</Text>
       </View>
-      <Text style={deliveryStyles.heading}>{order.delivery.recipient}</Text>
-      <Text style={deliveryStyles.body}>{deliveryAddress(order.delivery)}</Text>
-      <Text style={deliveryStyles.detail}>{order.delivery.phone}</Text>
-      {order.delivery.notes ? <Text style={deliveryStyles.detail}>Instructions · {order.delivery.notes}</Text> : null}
+      {order.delivery ? <>
+        <Text style={deliveryStyles.heading}>{order.delivery.recipient}</Text>
+        <Text style={deliveryStyles.body}>{deliveryAddress(order.delivery)}</Text>
+        <Text style={deliveryStyles.detail}>{order.delivery.phone}</Text>
+        {order.delivery.notes ? <Text style={deliveryStyles.detail}>Instructions · {order.delivery.notes}</Text> : null}
+      </> : null}
       <View style={deliveryStyles.divider} />
       {order.lines.map((line) => (
         <View key={line.key ?? line.item.id}>
@@ -52,7 +55,7 @@ export default function DeliveryTicket({ order, children, surfaceStyle }) {
         </Text>
       </View>
       <Text style={deliveryStyles.detail}>
-        {rider ? `Rider · ${rider.displayName || rider.username}` : "Rider not assigned yet"}
+        {assignedName ? `Rider · ${assignedName}` : order.riderId ? "Rider assigned" : "Rider not assigned yet"}
       </Text>
       {order.cancellationReason ? <Text style={deliveryStyles.detail}>{order.cancellationReason}</Text> : null}
       {children}

@@ -9,11 +9,12 @@ import { useCart } from "../context/CartContext";
 export default function RiderRoute() {
   const router = useRouter();
   const { currentUser, logout } = useAuth();
-  const { orders } = useCart();
+  const { orders, syncError } = useCart();
 
   if (!currentUser) return <Redirect href="/login" />;
   if (currentUser.role !== "rider") return <Redirect href="/" />;
-  const deliveries = orders.filter((order) => order.type === "delivery" && order.rider === currentUser.username);
+  const deliveries = orders.filter(order => order.type === "delivery" &&
+    (order.cloudId ? order.riderId === currentUser.id : order.rider === currentUser.username));
 
   function signOut() {
     logout();
@@ -27,6 +28,7 @@ export default function RiderRoute() {
         <DeliveryAction label="Log out" onPress={signOut} />
       </View>
       <Text style={styles.sectionLabel}>{currentUser.displayName || currentUser.username}</Text>
+      {syncError ? <Text accessibilityRole="alert" style={styles.detail}>{syncError}</Text> : null}
       {deliveries.length === 0 && <Text style={styles.detail}>No assigned deliveries yet.</Text>}
       {deliveries.map((order) => <RiderDelivery key={order.id} order={order} />)}
     </ScreenContainer>

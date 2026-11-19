@@ -8,8 +8,9 @@ import DeliveryProgress from "../delivery/DeliveryProgress";
 import MealNotes from "../MealNotes";
 import OrderAgain from "../OrderAgain";
 import OrderRating from "../OrderRating";
+import { canHideOrder } from "../../lib/orderHistory";
 
-export default function OrderTracking({ orders }) {
+export default function OrderTracking({ orders, onToggleHidden, hidden = false, historyBusy = false }) {
   const glass = useMenuGlass();
   const { cancelDelivery } = useCart();
   const deliveries = orders.filter((order) => order.type === "delivery");
@@ -22,13 +23,13 @@ export default function OrderTracking({ orders }) {
           <DeliveryProgress status={order.status} />
           <OrderAgain order={order} />
           <OrderRating order={order} />
+          {onToggleHidden && canHideOrder(order) ? <DeliveryAction label={hidden ? "Restore order" : "Hide order"} disabled={historyBusy} onPress={() => onToggleHidden(order)} /> : null}
           {order.status === "Placed" && (
             <DeliveryAction label="Cancel order" onPress={() => cancelDelivery(order.id)} />
           )}
         </DeliveryTicket>
       ))}
       {(dineIn.length > 0 || orders.length === 0) && <View style={[styles.card, glass.surface]}>
-      <Text style={styles.description}>Orders placed in this session appear here.</Text>
       {orders.length === 0 && <Text style={styles.description}>No orders yet.</Text>}
       {dineIn.map((order) => (
         <View key={order.id} style={styles.order}>

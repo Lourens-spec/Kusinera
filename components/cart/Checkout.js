@@ -30,9 +30,9 @@ export function TableIdentification({ tableNumber, setTableNumber, hasTable }) {
   );
 }
 
-export function OrderPlacement({ total, subtotal, deliveryFee, discount, isDelivery, detailsMessage, hasItems, hasTable, hasUnavailableItems, placeOrder }) {
+export function OrderPlacement({ total, subtotal, deliveryFee, discount, isDelivery, detailsMessage, hasItems, hasTable, hasUnavailableItems, placeOrder, placing }) {
   const glass = useMenuGlass();
-  const canPlaceOrder = hasItems && hasTable && !hasUnavailableItems;
+  const canPlaceOrder = hasItems && hasTable && !hasUnavailableItems && !placing;
 
   return (
     <View style={[styles.card, glass.surface]}>
@@ -40,7 +40,7 @@ export function OrderPlacement({ total, subtotal, deliveryFee, discount, isDeliv
         <>
           <View style={styles.row}><Text style={styles.description}>Subtotal</Text><Text style={styles.description}>₱{subtotal.toFixed(2)}</Text></View>
           {isDelivery && <View style={styles.row}><Text style={styles.description}>Sample delivery fee</Text><Text style={styles.description}>₱{deliveryFee.toFixed(2)}</Text></View>}
-          {discount > 0 && <View style={styles.row}><Text style={styles.description}>KUSI50 discount</Text><Text style={styles.description}>−₱{discount.toFixed(2)}</Text></View>}
+          {discount > 0 && <View style={styles.row}><Text style={styles.description}>Voucher discount</Text><Text style={styles.description}>−₱{discount.toFixed(2)}</Text></View>}
         </>
       )}
       <View style={styles.row}>
@@ -63,7 +63,7 @@ export function OrderPlacement({ total, subtotal, deliveryFee, discount, isDeliv
         onPress={placeOrder}
         style={[styles.place, !canPlaceOrder && styles.disabledPlace]}
       >
-        <Text style={[styles.placeLabel, !canPlaceOrder && styles.disabledLabel]}>{isDelivery ? "Place delivery order" : "Place order"}</Text>
+        <Text style={[styles.placeLabel, !canPlaceOrder && styles.disabledLabel]}>{placing ? "Placing order…" : isDelivery ? "Place delivery order" : "Place order"}</Text>
       </Pressable>
     </View>
   );

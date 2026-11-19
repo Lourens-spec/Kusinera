@@ -1,6 +1,5 @@
-// Replace these with the restaurant's real contact details.
 export const restaurantContact = {
-  phone: "",
-  hours: "",
-  email: "",
+  phone: "09361277862",
+  hours: "8:00 AM – 8:00 PM",
+  email: "cabingas.lourenskhent@gmail.com",
 };

@@ -1,3 +1,4 @@
+import sharedStyles from "../styles/sharedStyles";
 import React, { useState } from "react";
 import { useRouter } from "expo-router";
 import { StyleSheet } from "react-native";
@@ -75,9 +76,9 @@ export default function DeliveryCoverageRoute() {
 
 const styles = StyleSheet.create({
   page: { maxWidth: 430 },
-  header: { flexDirection: "row", alignItems: "center", gap: 12, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: "#EADCCD" },
-  back: { width: 44, height: 44, borderRadius: 22, backgroundColor: "#FFFDF9", alignItems: "center", justifyContent: "center" },
-  title: { flex: 1, color: "#6D0808", fontSize: 25, fontWeight: "700" },
+  header: sharedStyles.supportHeader,
+  back: sharedStyles.supportBack,
+  title: sharedStyles.supportTitle,
   city: { flexDirection: "row", alignItems: "center", gap: 12, padding: 15, borderRadius: 14, marginVertical: 16 },
   copy: { flex: 1, gap: 4 },
   cityName: { fontWeight: "700", color: "#6D0808", fontSize: 16 },

@@ -14,7 +14,7 @@ export default function FavoritesRoute() {
   const glass = useMenuGlass();
   const router = useRouter();
   const { menuItems } = useMenu();
-  const { currentUser, favoriteIds } = useAuth();
+  const { currentUser, favoriteIds, favoritesLoading, favoritesError, reloadFavorites } = useAuth();
   const favorites = menuItems.filter((item) => favoriteIds.includes(item.id));
 
   function openDish(id) {
@@ -33,7 +33,12 @@ export default function FavoritesRoute() {
           />
         </>
       )}
-      {currentUser && favorites.length === 0 && (
+      {favoritesLoading ? <Text style={styles.note}>Loading your favorites…</Text> : null}
+      {favoritesError ? <>
+        <Text accessibilityRole="alert" style={styles.note}>{favoritesError}</Text>
+        <AuthButton title="Try again" onPress={reloadFavorites} />
+      </> : null}
+      {currentUser && !favoritesLoading && !favoritesError && favorites.length === 0 && (
         <Text style={styles.note}>Tap the heart beside a dish on the menu to save it here.</Text>
       )}
       {favorites.map((item) => <MenuCard key={item.id} item={item} onPress={openDish} surfaceStyle={glass.surface} />)}

@@ -24,19 +24,31 @@ export default function CartRoute() {
     tableNumber, setTableNumber, customerOrders, placeOrder, setOrderType, setDeliveryDetails,
   } = useCart();
   const [previousOrderCount, setPreviousOrderCount] = useState(null);
+  const [sharedConfirmation, setSharedConfirmation] = useState(null);
+  const [placing, setPlacing] = useState(false);
   const hasTable = tableNumber.trim().length > 0;
   const isDelivery = checkout.type === "delivery";
   const detailsError = isDelivery ? validateDelivery(checkout.delivery) : null;
   const hasDetails = isDelivery ? !detailsError : hasTable;
   const hasUnavailableItems = lines.some(({ item }) => item.available === false);
-  const placedOrder = previousOrderCount !== null && customerOrders.length > previousOrderCount ? customerOrders[0] : null;
+  const localOrders = customerOrders.filter(order => !order.cloudId);
+  const localConfirmation = previousOrderCount !== null && localOrders.length > previousOrderCount ? localOrders[0] : null;
+  const placedOrder = sharedConfirmation?.ownerId === currentUser?.id ? sharedConfirmation?.order ?? localConfirmation : localConfirmation;
 
   if (currentUser?.role === "rider") return <Redirect href="/rider" />;
   if (currentUser?.role === "staff" || currentUser?.role === "kitchen") return <Redirect href="/kitchen" />;
-  function submitOrder() {
-    setPreviousOrderCount(customerOrders.length);
+  async function submitOrder() {
+    if (placing) return;
+    setPreviousOrderCount(localOrders.length);
+    setSharedConfirmation(null);
+    setPlacing(true);
     Keyboard.dismiss();
-    placeOrder();
+    try {
+      const order = await placeOrder();
+      if (order) setSharedConfirmation({ ownerId: currentUser.id, order });
+    } finally {
+      setPlacing(false);
+    }
   }
 
   return (
@@ -69,7 +81,7 @@ export default function CartRoute() {
           <OrderPlacement
             total={orderTotal} subtotal={total} deliveryFee={deliveryFee} discount={discount} isDelivery={isDelivery}
             hasItems={count > 0} hasTable={hasDetails} detailsMessage={detailsError}
-            hasUnavailableItems={hasUnavailableItems} placeOrder={submitOrder}
+            hasUnavailableItems={hasUnavailableItems} placeOrder={submitOrder} placing={placing}
           />
           {error ? <Text accessibilityRole="alert" style={styles.accent}>{error}</Text> : null}
         </>

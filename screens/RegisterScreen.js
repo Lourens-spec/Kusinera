@@ -14,6 +14,7 @@ export default function RegisterScreen({ accounts, goToLogin, onRegisterSuccess,
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const { darkMode } = useTheme();
 
   const { height } = useWindowDimensions();
@@ -30,7 +31,8 @@ export default function RegisterScreen({ accounts, goToLogin, onRegisterSuccess,
     }),
   };
 
-  function handleRegister() {
+  async function handleRegister() {
+    if (submitting) return;
     const cleanEmail = email.trim().toLowerCase();
     const cleanUsername = username.trim();
 
@@ -44,6 +46,10 @@ export default function RegisterScreen({ accounts, goToLogin, onRegisterSuccess,
     }
     if (password.length < 8) {
       setError("Your password must have at least 8 characters.");
+      return;
+    }
+    if (cleanUsername.length > 64) {
+      setError("Your username must be 64 characters or fewer.");
       return;
     }
     if (password !== confirmPassword) {
@@ -61,7 +67,14 @@ export default function RegisterScreen({ accounts, goToLogin, onRegisterSuccess,
     }
 
     setError("");
-    onRegisterSuccess({ email: cleanEmail, username: cleanUsername, password });
+    setSubmitting(true);
+    try {
+      await onRegisterSuccess({ email: cleanEmail, username: cleanUsername, password });
+    } catch (error) {
+      setError(error.message || "Couldn’t register. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -79,7 +92,7 @@ export default function RegisterScreen({ accounts, goToLogin, onRegisterSuccess,
       <AuthInput compact={compact} label="Confirm password" icon="lock-closed-outline" warm placeholder="Re-enter your password" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry />
       <Text style={[styles.note, compact && styles.compactNote]}>Good food starts with a warm welcome.</Text>
       {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
-      <AuthSubmit styles={styles} onPress={handleRegister} label="Create account" />
+      <AuthSubmit styles={styles} onPress={handleRegister} label={submitting ? "Creating account…" : "Create account"} />
       <View style={[styles.loginRow, compact && styles.compactLoginRow]}>
         <Text style={styles.loginText}>Already part of the table?</Text>
         <Pressable accessibilityRole="button" onPress={goToLogin} style={styles.login}><Text style={styles.link}>Log in</Text></Pressable>

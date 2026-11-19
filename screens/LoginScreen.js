@@ -8,10 +8,11 @@ import AuthInput from "../components/authInput";
 import AuthLayout, { AuthDivider, AuthSubmit } from "../components/AuthLayout";
 import { useTheme } from "../context/ThemeContext";
 
-export default function LoginScreen({ accounts, message, goToRegister, onLoginSuccess, goToHome, goToWelcome }) {
+export default function LoginScreen({ emailEnabled, onVerifyEmail, message, goToRegister, onLoginSuccess, goToHome, goToWelcome }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const { darkMode } = useTheme();
 
   const { height } = useWindowDimensions();
@@ -28,23 +29,22 @@ export default function LoginScreen({ accounts, message, goToRegister, onLoginSu
     }),
   };
 
-  function handleLogin() {
+  async function handleLogin() {
+    if (submitting) return;
     if (!username.trim() || !password) {
-      setError("Please enter your username and password.");
-      return;
-    }
-
-    const account = accounts.find(
-      (user) => user.username.toLowerCase() === username.trim().toLowerCase()
-        && user.password === password
-    );
-    if (!account) {
-      setError("Incorrect username or password.");
+      setError(emailEnabled ? "Please enter your username or email and password." : "Please enter your username and password.");
       return;
     }
 
     setError("");
-    onLoginSuccess(account);
+    setSubmitting(true);
+    try {
+      await onLoginSuccess(username.trim(), password);
+    } catch (error) {
+      setError(error.message || "Couldn’t log in. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -62,10 +62,11 @@ export default function LoginScreen({ accounts, message, goToRegister, onLoginSu
     }>
       <AuthDivider styles={layout} label="LOG IN TO KUSINERA" />
       {!!message && <Text accessibilityLiveRegion="polite" style={styles.success}>{message}</Text>}
-      <AuthInput compact={compact} label="Username" icon="person-outline" warm placeholder="Enter your username" value={username} onChangeText={setUsername} />
+      <AuthInput compact={compact} label={emailEnabled ? "Username or email" : "Username"} icon="person-outline" warm placeholder="Enter your username" value={username} onChangeText={setUsername} />
       <AuthInput compact={compact} label="Password" icon="lock-closed-outline" warm placeholder="Enter your password" value={password} onChangeText={setPassword} secureTextEntry />
       {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
-      <AuthSubmit styles={layout} onPress={handleLogin} label="Log in" />
+      {emailEnabled && onVerifyEmail ? <Pressable accessibilityRole="button" onPress={() => onVerifyEmail(username.includes("@") ? username.trim() : "")} style={styles.browse}><Text style={styles.browseLabel}>Verify your email</Text></Pressable> : null}
+      <AuthSubmit styles={layout} onPress={handleLogin} label={submitting ? "Logging in…" : "Log in"} />
       <AuthDivider styles={layout} label="NEW TO OUR TABLE?" style={[styles.newHere, compact && styles.compactNewHere]} />
       <Pressable accessibilityRole="button" onPress={goToRegister} style={[styles.register, compact && styles.compactRegister]}><Text style={styles.link}>Create an account</Text></Pressable>
       <Pressable accessibilityRole="button" onPress={goToHome} style={[styles.browse, compact && styles.compactBrowse]}><Text style={styles.browseLabel}>Browse the menu first</Text></Pressable>

@@ -30,7 +30,7 @@ const statusGroups = {
   },
 };
 
-export default function StaffOrders({ orders, onAdvance, onPayment, onLogout }) {
+export default function StaffOrders({ orders, syncError, onAdvance, onPayment, onLogout }) {
   const router = useRouter();
   const glass = useMenuGlass();
   const [orderType, setOrderType] = useState("Dine-in");
@@ -77,6 +77,7 @@ export default function StaffOrders({ orders, onAdvance, onPayment, onLogout }) 
             <Text style={styles.buttonLabel}>Manage menu</Text>
           </Pressable>
         </View>
+        {syncError ? <Text accessibilityRole="alert" style={styles.detail}>{syncError}</Text> : null}
         <View style={[styles.tabs, glass.surface]}>
           {orderTypes.map(({ label, icon }) => {
             const selected = orderType === label;

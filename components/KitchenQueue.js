@@ -18,7 +18,7 @@ const deliveryNotes = {
   Cancelled: "Order cancelled.",
 };
 
-export default function KitchenQueue({ orders, onAdvance, onLogout }) {
+export default function KitchenQueue({ orders, syncError, onAdvance, onLogout }) {
   const glass = useMenuGlass();
   const [filter, setFilter] = useState("All orders");
   const grouped = {
@@ -64,6 +64,7 @@ export default function KitchenQueue({ orders, onAdvance, onLogout }) {
       </View>
       <View style={styles.main}>
         <Text accessibilityRole="header" style={styles.title}>Kitchen queue</Text>
+        {syncError ? <Text accessibilityRole="alert" style={styles.detail}>{syncError}</Text> : null}
         {tile(filters[0])}
         <View style={styles.tiles}>{filters.slice(1).map(tile)}</View>
         <View style={[styles.row, styles.ticketHeading]}>

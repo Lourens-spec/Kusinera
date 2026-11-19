@@ -12,9 +12,11 @@ export default function RegisterRoute() {
   }
   const { accounts, register } = useAuth();
 
-  function handleRegister(account) {
-    register(account);
-    openLogin();
+  async function handleRegister(account) {
+    const result = await register(account);
+    if (result?.requiresVerification) {
+      router.replace({ pathname: "/verify-email", params: { email: result.email, dishId, fromCart, fromProfile, fromFavorites, fromTracking } });
+    } else { openLogin(); }
   }
 
   return (

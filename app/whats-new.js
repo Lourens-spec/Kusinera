@@ -1,3 +1,4 @@
+import sharedStyles from "../styles/sharedStyles";
 import React from "react";
 import { useRouter } from "expo-router";
 import { StyleSheet } from "react-native";
@@ -70,9 +71,9 @@ function FeaturedDish({ dish, label, onPress }) {
 
 const styles = StyleSheet.create({
   page: { maxWidth: 430 },
-  header: { flexDirection: "row", alignItems: "center", gap: 12, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: "#EADCCD" },
-  back: { width: 44, height: 44, borderRadius: 22, backgroundColor: "#FFFDF9", alignItems: "center", justifyContent: "center" },
-  title: { flex: 1, color: "#6D0808", fontSize: 25, fontWeight: "700" },
+  header: sharedStyles.supportHeader,
+  back: sharedStyles.supportBack,
+  title: sharedStyles.supportTitle,
   section: { color: "#352925", fontSize: 21, fontWeight: "700", marginTop: 18, marginBottom: 10 },
   card: { borderRadius: 16, overflow: "hidden", marginBottom: 10 },
   photo: { width: "100%", height: 128 },
@@ -84,6 +85,6 @@ const styles = StyleSheet.create({
   price: { color: "#6D0808", fontWeight: "600" },
   viewDish: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: 4 },
   upcoming: { flexDirection: "row", gap: 12, alignItems: "center", padding: 14, borderRadius: 16, borderStyle: "dashed" },
-  badge: { width: 44, height: 44, borderRadius: 22, backgroundColor: "#FFFDF9", alignItems: "center", justifyContent: "center" },
+  badge: sharedStyles.supportBack,
   upcomingCopy: { flex: 1, gap: 4 },
 });

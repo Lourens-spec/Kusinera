@@ -7,7 +7,7 @@ import ScreenContainer from "./ScreenContainer";
 import { useMenuGlass } from "../styles/menuGlass";
 
 export default function EditProfileForm({
-  username, displayName, photoUri, error, onNameChange, onChangePhoto, onRemovePhoto, onSave, onCancel,
+  username, displayName, photoUri, error, saving = false, onNameChange, onChangePhoto, onRemovePhoto, onSave, onCancel,
 }) {
   const glass = useMenuGlass();
   return (
@@ -20,9 +20,9 @@ export default function EditProfileForm({
           <View style={styles.photoDetails}>
             <Text style={styles.label}>Profile photo</Text>
             <View style={styles.photoActions}>
-              <FormButton label="Change photo" icon="camera" onPress={onChangePhoto} style={styles.change} />
+              <FormButton label="Change photo" disabled={saving} icon="camera" onPress={onChangePhoto} style={styles.change} />
               {photoUri && (
-                <FormButton label="Remove" accessibilityLabel="Remove photo" onPress={onRemovePhoto} />
+                <FormButton label="Remove" disabled={saving} accessibilityLabel="Remove photo" onPress={onRemovePhoto} />
               )}
             </View>
           </View>
@@ -35,6 +35,7 @@ export default function EditProfileForm({
             maxLength={40}
             placeholder={username}
             placeholderTextColor="#625B5B"
+            editable={!saving}
             value={displayName}
             onChangeText={onNameChange}
             style={styles.input}
@@ -43,16 +44,16 @@ export default function EditProfileForm({
         </View>
       </View>
       <View style={styles.actions}>
-        <FormButton label="Save changes" onPress={onSave} style={styles.save} primary />
-        <FormButton label="Cancel" onPress={onCancel} style={styles.cancel} />
+        <FormButton label={saving ? "Saving…" : "Save changes"} disabled={saving} onPress={onSave} style={styles.save} primary />
+        <FormButton label="Cancel" disabled={saving} onPress={onCancel} style={styles.cancel} />
       </View>
     </ScreenContainer>
   );
 }
 
-function FormButton({ label, accessibilityLabel, icon, onPress, style, primary }) {
+function FormButton({ label, accessibilityLabel, icon, onPress, style, primary, disabled }) {
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={accessibilityLabel} onPress={onPress} style={[styles.button, style]}>
+    <Pressable disabled={disabled} accessibilityRole="button" accessibilityLabel={accessibilityLabel} onPress={onPress} style={[styles.button, style]}>
       {icon && <Feather name={icon} size={16} color="#6D0808" />}
       <Text style={[styles.buttonLabel, primary && styles.primaryLabel]}>{label}</Text>
     </Pressable>

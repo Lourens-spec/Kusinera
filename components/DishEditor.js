@@ -1,6 +1,6 @@
 import { Feather, Image, Pressable, Switch, Text, TextInput, View } from "./Themed";
 import sharedStyles from "../styles/sharedStyles";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { launchImageLibraryAsync } from "expo-image-picker";
 import { Keyboard, StyleSheet } from "react-native";
 import { menuGroups, validateDishBasics } from "../context/MenuContext";
@@ -23,6 +23,8 @@ export default function DishEditor({ item, onSave, onCancel }) {
     image: item?.image ?? null,
     available: item?.available !== false,
   });
+  const savingRef = useRef(false);
+  const [saving, setSaving] = useState(false);
   const [step, setStep] = useState(0);
   const [error, setError] = useState("");
 
@@ -49,17 +51,24 @@ export default function DishEditor({ item, onSave, onCancel }) {
     setError("");
     try {
       const result = await launchImageLibraryAsync({
-        mediaTypes: ["images"], allowsEditing: true, aspect: [1, 1], quality: 0.7,
+        mediaTypes: ["images"], allowsEditing: true, aspect: [1, 1], quality: 0.7, base64: true,
       });
-      if (!result.canceled && result.assets[0]) change("image", { uri: result.assets[0].uri });
+      if (!result.canceled && result.assets[0]) change("image", { uri: result.assets[0].uri, base64: result.assets[0].base64 });
     } catch {
       setError("Couldn’t open that photo. Please try another image.");
     }
   }
 
-  function save() {
-    const message = onSave({ ...draft, ingredients: draft.ingredients.split("\n") });
-    if (message) setError(message);
+  async function save() {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
+    setError("");
+    try {
+      const message = await onSave({ ...draft, ingredients: draft.ingredients.split("\n") });
+      if (message) setError(message);
+    } catch (failure) { setError(failure.message || "Couldn’t save this dish."); }
+    finally { savingRef.current = false; setSaving(false); }
   }
 
   function field(key, label, inputProps = {}) {
@@ -160,8 +169,8 @@ export default function DishEditor({ item, onSave, onCancel }) {
           <Pressable accessibilityRole="button" onPress={step === 0 ? onCancel : () => goToStep(0)} style={[styles.action, styles.secondary]}>
             <Text style={styles.buttonLabel}>{step === 0 ? "Cancel" : "Back"}</Text>
           </Pressable>
-          <Pressable accessibilityRole="button" onPress={step === 0 ? () => goToStep(1) : save} style={[styles.action, styles.primary, styles.continue]}>
-            <Text style={styles.primaryLabel}>{step === 0 ? "Continue" : "Save dish"}</Text>
+          <Pressable accessibilityRole="button" disabled={saving} onPress={step === 0 ? () => goToStep(1) : save} style={[styles.action, styles.primary, styles.continue]}>
+            <Text style={styles.primaryLabel}>{saving ? "Publishing…" : step === 0 ? "Continue" : "Save dish"}</Text>
             <Feather name={step === 0 ? "arrow-right" : "check"} size={17} color="#FFF8ED" />
           </Pressable>
         </View>

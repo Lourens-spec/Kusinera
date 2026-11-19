@@ -13,7 +13,7 @@ const stockFilters = ["All dishes", "Available", "Sold out"];
 export default function ManageMenuRoute() {
   const router = useRouter();
   const { currentUser } = useAuth();
-  const { menuItems, setDishAvailable } = useMenu();
+  const { menuItems, setDishAvailable, syncError } = useMenu();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("All dishes");
   const availableCount = menuItems.filter(item => item.available !== false).length;
@@ -62,6 +62,7 @@ export default function ManageMenuRoute() {
             </Pressable>
           )}
         </View>
+        {syncError ? <Text accessibilityRole="alert" style={styles.empty}>{syncError}</Text> : null}
         <MenuFilters options={stockFilters} selectedFilter={filter} onSelect={setFilter} />
 
         {visible.length === 0 ? (

@@ -1,6 +1,7 @@
 import React from "react";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { PromotionsProvider } from "../lib/promotions";
 import { CartProvider } from "../context/CartContext";
 import { AuthProvider } from "../context/AuthContext";
 import { MenuProvider } from "../context/MenuContext";
@@ -14,9 +15,11 @@ export default function RootLayout() {
     <ThemeProvider>
       <AuthProvider>
         <MenuProvider>
+          <PromotionsProvider>
           <CartProvider>
             <RootNavigator />
           </CartProvider>
+          </PromotionsProvider>
         </MenuProvider>
       </AuthProvider>
     </ThemeProvider>

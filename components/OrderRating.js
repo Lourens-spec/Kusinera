@@ -11,28 +11,43 @@ export default function OrderRating({ order }) {
   const { rateOrder } = useCart();
   const [stars, setStars] = useState(order.rating?.stars || 0);
   const [comment, setComment] = useState(order.rating?.comment || "");
-  const [editing, setEditing] = useState(!order.rating);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const showForm = editing || !order.rating;
   if (!canRateOrder(order, currentUser)) return null;
-  function save() {
-    const error = rateOrder(order.id, stars, comment);
-    setMessage(error || "Thank you! Your rating is saved for this session.");
-    if (!error) setEditing(false);
+  async function save() {
+    if (saving) return;
+    setSaving(true);
+    setMessage("");
+    try {
+      const error = await rateOrder(order.id, stars, comment);
+      setMessage(error || (order.cloudId ? "Thank you! Your rating is saved." : "Thank you! Your rating is saved for this session."));
+      if (!error) setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+  function edit() {
+    setStars(order.rating.stars);
+    setComment(order.rating.comment);
+    setMessage("");
+    setEditing(true);
   }
   return <View style={styles.card}>
-    <Text style={styles.title}>{editing ? "How was your meal?" : "Your rating"}</Text>
-    {editing ? <>
+    <Text style={styles.title}>{showForm ? "How was your meal?" : "Your rating"}</Text>
+    {showForm ? <>
       <View style={styles.row}>{[1, 2, 3, 4, 5].map((value) => (
         <Pressable key={value} accessibilityRole="button" accessibilityLabel={`Rate ${value} ${value === 1 ? "star" : "stars"}`} accessibilityState={{ selected: stars === value }} onPress={() => { setStars(value); setMessage(""); }} style={styles.star}>
           <Feather name="star" size={26} color={value <= stars ? "#6D0808" : "#A39898"} fill={value <= stars ? "#F3CF83" : "transparent"} />
         </Pressable>
       ))}</View>
       <TextInput accessibilityLabel="Optional order review" value={comment} onChangeText={setComment} maxLength={300} multiline placeholder="Add a comment (optional)" placeholderTextColor="#625B5B" style={styles.input} />
-      <Pressable accessibilityRole="button" onPress={save} style={styles.button}><Text style={styles.white}>Save rating</Text></Pressable>
+      <Pressable accessibilityRole="button" disabled={saving} onPress={save} style={styles.button}><Text style={styles.white}>{saving ? "Saving…" : "Save rating"}</Text></Pressable>
     </> : <>
       <Text style={styles.body}>{order.rating?.stars} / 5 stars</Text>
       {!!order.rating?.comment && <Text style={styles.body}>{order.rating.comment}</Text>}
-      <Pressable accessibilityRole="button" onPress={() => { setEditing(true); setMessage(""); }} style={styles.edit}><Text style={styles.link}>Edit rating</Text></Pressable>
+      <Pressable accessibilityRole="button" onPress={edit} style={styles.edit}><Text style={styles.link}>Edit rating</Text></Pressable>
     </>}
     {!!message && <Text accessibilityLiveRegion="polite" style={styles.body}>{message}</Text>}
   </View>;

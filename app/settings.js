@@ -1,3 +1,4 @@
+import sharedStyles from "../styles/sharedStyles";
 import { Feather, Pressable, Switch, Text, View } from "../components/Themed";
 import React from "react";
 import { useRouter } from "expo-router";
@@ -5,6 +6,7 @@ import { StyleSheet } from "react-native";
 import ScreenContainer from "../components/ScreenContainer";
 import { useMenuGlass } from "../styles/menuGlass";
 import { useTheme } from "../context/ThemeContext";
+import { useAuth } from "../context/AuthContext";
 
 const helpLinks = [
   { label: "How to order", icon: "book-open", pathname: "/info", topic: "ordering" },
@@ -19,6 +21,7 @@ export default function SettingsRoute() {
   const glass = useMenuGlass();
   const router = useRouter();
   const { darkMode, setDarkMode } = useTheme();
+  const { currentUser } = useAuth();
 
   function open({ pathname, topic }) {
     router.push({ pathname, params: { fromSettings: "1", ...(topic ? { topic } : {}) } });
@@ -36,6 +39,7 @@ export default function SettingsRoute() {
       <Text accessibilityRole="header" style={styles.sectionTitle}>Account</Text>
       <View style={[styles.card, glass.surface]}>
         <SettingsRow label="Edit profile" icon="user" onPress={() => open({ pathname: "/edit-profile" })} />
+        {currentUser?.role === "customer" ? <SettingsRow label="Change password" icon="lock" divided onPress={() => open({ pathname: "/change-password" })} /> : null}
       </View>
 
       <Text accessibilityRole="header" style={styles.sectionTitle}>Preferences</Text>
@@ -70,7 +74,7 @@ function SettingsRow({ label, icon, onPress, divided }) {
 const styles = StyleSheet.create({
   page: { maxWidth: 430 },
   header: { flexDirection: "row", alignItems: "center", gap: 12, borderBottomWidth: 1, borderBottomColor: "#EADCCD", paddingBottom: 8 },
-  back: { width: 44, height: 44, borderRadius: 22, backgroundColor: "#FFFDF9", alignItems: "center", justifyContent: "center" },
+  back: sharedStyles.supportBack,
   title: { fontSize: 25, fontWeight: "700", color: "#6D0808" },
   sectionTitle: { marginTop: 18, marginBottom: 6, paddingHorizontal: 10, fontSize: 11, letterSpacing: 1, fontWeight: "600", textTransform: "uppercase", color: "#76665F" },
   card: { borderRadius: 12, overflow: "hidden" },

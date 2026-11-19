@@ -1,8 +1,13 @@
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useRef, useState } from "react";
+import { Alert } from "react-native";
+import { supabase } from "../lib/supabase";
+import { saveSharedRating, toDeliveryOrder, toDineInOrder, useDineInOrders } from "../lib/dineInOrders";
 import { useAuth } from "./AuthContext";
 import { useMenu } from "./MenuContext";
+import { usePromotions } from "../lib/promotions";
+import { isPromotionActive, promotionDiscount } from "../utils/promotions";
 import { DELIVERY_CITY, EMPTY_CHECKOUT, SAMPLE_DELIVERY_FEE, isCustomer, validateDelivery } from "../utils/delivery";
-import { SAMPLE_VOUCHER, mealAddOns, mealKey, mealTotal, voucherDiscount } from "../utils/mealOptions";
+import { mealAddOns, mealKey, mealTotal } from "../utils/mealOptions";
 
 import { canRateOrder, popularDishIds } from "../utils/orderReviews";
 
@@ -40,16 +45,28 @@ function withMeal(current, item, quantity, addOns, notes) {
 export function CartProvider({ children }) {
   const { currentUser, accounts } = useAuth();
   const { menuItems } = useMenu();
+  const { activePromotions: promotions } = usePromotions();
   const [cart, setCart] = useState({ quantities: {}, tableNumber: "", orders: [], checkouts: new Map(), error: "" });
-  const { quantities, tableNumber, orders, error = "", notice = "" } = cart;
+  const { quantities, tableNumber, error = "", notice = "" } = cart;
+  const dineIn = useDineInOrders(currentUser?.id);
+  const deliveries = useDineInOrders(currentUser?.id, true);
+  const syncError = dineIn.syncError || deliveries.syncError;
+  const submission = useRef(null);
+  const submitting = useRef(false);
+  const orders = [
+    ...dineIn.rows.map(row => toDineInOrder(row, currentUser)),
+    ...deliveries.rows.map(row => toDeliveryOrder(row, currentUser)),
+    ...cart.orders,
+  ];
   const checkout = cart.checkouts?.get(currentUser?.username) ?? EMPTY_CHECKOUT;
   const lines = getLines(menuItems, quantities, cart.customizations);
   const count = lines.reduce((sum, { quantity }) => sum + quantity, 0);
   const total = mealTotal(lines);
-  const discount = voucherDiscount(total, checkout.voucherCode);
+  const discount = promotionDiscount(total, checkout.voucherCode, promotions);
   const deliveryFee = checkout.type === "delivery" && count > 0 ? SAMPLE_DELIVERY_FEE : 0;
   const orderTotal = (Math.round(total * 100) + deliveryFee * 100 - discount * 100) / 100;
-  const customerOrders = orders.filter((order) => !order.customerUsername || order.customerUsername === currentUser?.username);
+  const customerOrders = orders.filter(order => order.customerUsername === currentUser?.username ||
+    (!order.cloudId && !order.customerUsername));
 
   function setTableNumber(value) {
     setCart((current) => ({ ...current, tableNumber: value, error: "" }));
@@ -106,8 +123,8 @@ export function CartProvider({ children }) {
 
   function reorderOrder(id) {
     if (!isCustomer(currentUser)) return;
+    const previous = orders.find((order) => order.id === id);
     setCart((current) => {
-      const previous = current.orders.find((order) => order.id === id);
       if (!previous || !["Served", "Delivered"].includes(previous.status) ||
         (previous.customerUsername && previous.customerUsername !== currentUser.username)) return current;
       let next = { ...current, error: "" };
@@ -140,10 +157,12 @@ export function CartProvider({ children }) {
     setCart((current) => {
       const selected = current.checkouts?.get(currentUser.username) ?? EMPTY_CHECKOUT;
       const subtotal = mealTotal(getLines(menuItems, current.quantities, current.customizations));
-      const voucherMessage = code !== SAMPLE_VOUCHER.code
-        ? "Use the sample code KUSI50."
-        : subtotal < SAMPLE_VOUCHER.minimum ? "Add at least ₱300 of food to use KUSI50." : "₱50 sample discount applied.";
-      const voucherCode = code === SAMPLE_VOUCHER.code && subtotal >= SAMPLE_VOUCHER.minimum ? code : selected.voucherCode;
+      const promo = promotions.find(item => item.code === code && isPromotionActive(item));
+      const amount = promotionDiscount(subtotal, code, promotions);
+      const voucherMessage = !promo ? "This voucher is unavailable or expired."
+        : subtotal < Number(promo.minimum) ? "Add at least ₱" + promo.minimum + " of food to use " + code + "."
+        : "₱" + amount.toFixed(2) + " discount applied.";
+      const voucherCode = promo && subtotal >= Number(promo.minimum) ? code : selected.voucherCode;
       return { ...current, checkouts: new Map(current.checkouts).set(currentUser.username, { ...selected, voucherCode, voucherMessage }) };
     });
   }
@@ -154,6 +173,9 @@ export function CartProvider({ children }) {
 
   function placeOrder() {
     if (!isCustomer(currentUser)) return;
+    if (supabase && currentUser.id) {
+      return placeSharedOrder();
+    }
     setCart((current) => {
       const selected = current.checkouts?.get(currentUser.username) ?? EMPTY_CHECKOUT;
       const delivery = selected.type === "delivery";
@@ -166,7 +188,7 @@ export function CartProvider({ children }) {
       }
 
       const subtotal = mealTotal(orderLines);
-      const orderDiscount = voucherDiscount(subtotal, selected.voucherCode);
+      const orderDiscount = promotionDiscount(subtotal, selected.voucherCode, promotions);
       const fee = delivery ? SAMPLE_DELIVERY_FEE : 0;
       const order = {
         id: current.orders.length + 1,
@@ -185,33 +207,130 @@ export function CartProvider({ children }) {
     });
   }
 
+  async function placeSharedOrder() {
+    if (submitting.current || !lines.length) return null;
+    const table = tableNumber.trim();
+    const delivery = checkout.type === "delivery";
+    const fail = message => {
+      setCart(current => ({ ...current, error: message }));
+      return null;
+    };
+    const detailsError = delivery ? validateDelivery(checkout.delivery)
+      : (!table || table.length > 32) && "Enter a table number of up to 32 characters.";
+    if (detailsError) return fail(detailsError);
+    if (lines.some(({ item }) => item.available === false)) {
+      return fail("Remove sold-out dishes before placing an order.");
+    }
+
+    const params = {
+      ...(delivery ? { p_address: checkout.delivery } : { p_table: table }),
+      p_voucher: checkout.voucherCode ?? null,
+      p_items: lines.map(({ item, quantity, addOns, notes }) => ({
+        dish_id: item.id, quantity, extra_rice: addOns.some(addOn => addOn.id === "extra-rice"), notes,
+      })),
+    };
+    const fingerprint = JSON.stringify([currentUser.id, params]);
+    if (submission.current?.fingerprint !== fingerprint) {
+      // This UUID identifies a checkout attempt, not a credential.
+      const id = globalThis.crypto?.randomUUID?.() ?? "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, char =>
+        (char === "x" ? Math.floor(Math.random() * 16) : 8 + Math.floor(Math.random() * 4)).toString(16));
+      submission.current = { fingerprint, id };
+    }
+    submitting.current = true;
+    try {
+      const { data, error: orderError } = await supabase.rpc(delivery ? "place_delivery_order" : "place_dine_in_order", {
+        ...params, p_request_id: submission.current.id,
+      });
+      if (orderError) return fail(orderError.message);
+      submission.current = null;
+      setCart(current => {
+        if (current.quantities !== quantities) return current;
+        const selected = current.checkouts.get(currentUser.username) ?? EMPTY_CHECKOUT;
+        const checkouts = new Map(current.checkouts).set(currentUser.username, { ...selected, voucherCode: null, voucherMessage: "" });
+        return { ...current, quantities: {}, customizations: {}, checkouts, error: "", notice: "" };
+      });
+      if (delivery) {
+        deliveries.refresh();
+        return toDeliveryOrder(data, currentUser, checkout.delivery);
+      }
+      dineIn.refresh();
+      return toDineInOrder(data, currentUser);
+    } catch {
+      return fail("Couldn’t confirm the order. Retry from the same tray.");
+    } finally {
+      submitting.current = false;
+    }
+  }
+
   function updateOrder(id, update) {
     setCart((current) => ({ ...current, orders: current.orders.map((order) => order.id === id ? update(order) : order) }));
   }
 
-  function rateOrder(id, stars, comment = "") {
+  async function rateOrder(id, stars, comment = "") {
     const order = orders.find((entry) => entry.id === id);
     if (!order || !canRateOrder(order, currentUser)) return "Only your completed orders can be rated.";
     if (!Number.isInteger(stars) || stars < 1 || stars > 5) return "Choose a rating from 1 to 5 stars.";
     if (typeof comment !== "string" || comment.length > 300) return "Keep your review within 300 characters.";
+    if (order.cloudId) {
+      try {
+        const { data, error } = await saveSharedRating(order, { stars, comment: comment.trim() });
+        if (!error) {
+          const sharedOrders = order.type === "delivery" ? deliveries : dineIn;
+          sharedOrders.applyRating(order.cloudId, data);
+          return null;
+        }
+      } catch {
+        return "Couldn’t save your rating. Check your connection and try again.";
+      }
+      return "Couldn’t save your rating. Please try again.";
+    }
     updateOrder(id, (entry) => canRateOrder(entry, currentUser)
       ? { ...entry, rating: { stars, comment: comment.trim() } } : entry);
     return null;
   }
   function recordCashPayment(id) {
     if (currentUser?.role !== "staff") return;
+    const order = orders.find(entry => entry.id === id);
+    if (order?.cloudId) {
+      if (order.type !== "delivery") return updateSharedOrder(order, "pay");
+      return;
+    }
     updateOrder(id, (order) => order.type !== "delivery" && !order.paid ? { ...order, paid: true } : order);
   }
 
   function advanceOrder(id, expectedStatus) {
+    const order = orders.find(entry => entry.id === id);
+    if (order?.cloudId) {
+      const next = getNextOrderStatus(currentUser?.role, order.status, order.type);
+      const action = { Preparing: "prepare", Ready: "ready", Served: "serve" }[next];
+      if (action && order.status === expectedStatus) return updateSharedOrder(order, action);
+      return;
+    }
     updateOrder(id, (order) => {
       const next = getNextOrderStatus(currentUser?.role, order.status, order.type);
       return next && order.status === expectedStatus ? { ...order, status: next } : order;
     });
   }
 
+  async function updateSharedOrder(order, action, extra = {}) {
+    const delivery = order.type === "delivery";
+    try {
+      const { error: updateError } = await supabase.rpc(delivery ? "update_delivery_order" : "update_dine_in_order", {
+        p_id: order.cloudId, p_action: action, ...extra,
+      });
+      if (updateError) Alert.alert("Order update failed", updateError.message);
+    } catch {
+      Alert.alert("Order update failed", "Check your connection and try again.");
+    } finally {
+      if (delivery) deliveries.refresh();
+      else dineIn.refresh();
+    }
+  }
+
   function reviewDelivery(id, accepted) {
     if (currentUser?.role !== "staff") return;
+    const cloud = sharedDelivery(id);
+    if (cloud) return updateSharedOrder(cloud, accepted ? "accept" : "decline");
     updateOrder(id, (order) => order.type === "delivery" && order.status === "Placed"
       ? { ...order, status: accepted ? "Accepted" : "Cancelled", cancellationReason: accepted ? null : "Declined by restaurant" }
       : order);
@@ -219,43 +338,60 @@ export function CartProvider({ children }) {
 
   function cancelDelivery(id) {
     if (!isCustomer(currentUser)) return;
+    const cloud = sharedDelivery(id);
+    if (cloud) return updateSharedOrder(cloud, "cancel");
     updateOrder(id, (order) => order.type === "delivery" && order.status === "Placed" && order.customerUsername === currentUser.username
       ? { ...order, status: "Cancelled", cancellationReason: "Cancelled by customer" } : order);
   }
 
   function assignRider(id, username) {
-    if (currentUser?.role !== "staff" || !accounts.some((account) => account.username === username && account.role === "rider")) return;
+    if (currentUser?.role !== "staff") return;
+    const cloud = sharedDelivery(id);
+    if (cloud) return updateSharedOrder(cloud, "assign", { p_rider: username });
+    if (!accounts.some((account) => account.username === username && account.role === "rider")) return;
     updateOrder(id, (order) => order.type === "delivery" && ["Accepted", "Preparing", "Ready"].includes(order.status)
       ? { ...order, rider: username } : order);
   }
 
   function startDelivery(id) {
     if (currentUser?.role !== "rider") return;
+    const cloud = sharedDelivery(id);
+    if (cloud) return updateSharedOrder(cloud, "start");
     updateOrder(id, (order) => order.type === "delivery" && order.rider === currentUser.username && order.status === "Ready"
       ? { ...order, status: "Out for delivery" } : order);
   }
 
   function completeDelivery(id, cashReceived) {
     if (currentUser?.role !== "rider" || cashReceived !== true) return;
+    const cloud = sharedDelivery(id);
+    if (cloud) return updateSharedOrder(cloud, "deliver");
     updateOrder(id, (order) => order.type === "delivery" && order.rider === currentUser.username && order.status === "Out for delivery"
       ? { ...order, status: "Delivered", paid: true } : order);
   }
 
   function reportDeliveryIssue(id, message) {
     if (currentUser?.role !== "rider" || !message.trim() || message.length > 200) return;
+    const cloud = sharedDelivery(id);
+    if (cloud) return updateSharedOrder(cloud, "issue", { p_issue: message.trim() });
     updateOrder(id, (order) => order.type === "delivery" && order.rider === currentUser.username && order.status === "Out for delivery"
       ? { ...order, deliveryIssue: message.trim() } : order);
   }
 
   function recordRiderCash(id) {
     if (currentUser?.role !== "staff") return;
+    const cloud = sharedDelivery(id);
+    if (cloud) return updateSharedOrder(cloud, "remit");
     updateOrder(id, (order) => order.type === "delivery" && order.status === "Delivered" && order.paid && !order.cashRemitted
       ? { ...order, cashRemitted: true } : order);
   }
 
+  function sharedDelivery(id) {
+    return orders.find(order => order.id === id && order.type === "delivery" && order.cloudId);
+  }
+
   return (
     <CartContext.Provider value={{
-      lines, count, total, orderTotal, deliveryFee, discount, tableNumber, orders, customerOrders, checkout, error, notice,
+      lines, count, total, orderTotal, deliveryFee, discount, tableNumber, orders, customerOrders, checkout, error, notice, syncError,
       addMeal, reorderOrder, applyVoucher, removeVoucher, rateOrder, popularIds: popularDishIds(orders),
       setTableNumber, setOrderType, setDeliveryDetails, changeQuantity, placeOrder, recordCashPayment, advanceOrder,
       reviewDelivery, cancelDelivery, assignRider, startDelivery, completeDelivery, reportDeliveryIssue, recordRiderCash,

@@ -2,15 +2,18 @@ import React from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import LoginScreen from "../screens/LoginScreen";
 import { useAuth } from "../context/AuthContext";
+import { supabase } from "../lib/supabase";
 
 export default function LoginRoute() {
   const router = useRouter();
   const { dishId, fromCart, fromProfile, fromFavorites, fromTracking } = useLocalSearchParams();
-  const { accounts, message, setMessage, login, exploreMenu } = useAuth();
+  const { message, setMessage, login, exploreMenu } = useAuth();
 
-  function handleLogin(account) {
-    login(account);
-    if (account.role === "rider") {
+  async function handleLogin(identifier, password) {
+    const account = await login(identifier, password);
+    if (account.role === "admin") {
+      router.dismissTo("/admin");
+    } else if (account.role === "rider") {
       router.dismissTo("/rider");
     } else if (account.role === "staff" || account.role === "kitchen") {
       router.dismissTo("/kitchen");
@@ -37,7 +40,8 @@ export default function LoginRoute() {
   return (
     <LoginScreen
       goToWelcome={() => router.dismissTo("/")}
-      accounts={accounts}
+      emailEnabled={Boolean(supabase)}
+      onVerifyEmail={email => router.push({ pathname: "/verify-email", params: { email, dishId, fromCart, fromProfile, fromFavorites, fromTracking, noCodeSent: "1" } })}
       message={message}
       goToRegister={openRegistration}
       onLoginSuccess={handleLogin}

@@ -12,7 +12,7 @@ import { useCart } from "../context/CartContext";
 export default function KitchenRoute() {
   const router = useRouter();
   const { currentUser, logout } = useAuth();
-  const { orders, advanceOrder, recordCashPayment } = useCart();
+  const { orders, syncError, advanceOrder, recordCashPayment } = useCart();
 
   const role = currentUser?.role;
   const isStaff = role === "staff";
@@ -41,11 +41,11 @@ export default function KitchenRoute() {
   }
 
   if (role === "kitchen") {
-    return <KitchenQueue orders={orders} onAdvance={advanceOrder} onLogout={signOut} />;
+    return <KitchenQueue orders={orders} syncError={syncError} onAdvance={advanceOrder} onLogout={signOut} />;
   }
 
   return (
-    <StaffOrders orders={orders} onAdvance={advanceOrder} onPayment={recordCashPayment} onLogout={signOut} />
+    <StaffOrders orders={orders} syncError={syncError} onAdvance={advanceOrder} onPayment={recordCashPayment} onLogout={signOut} />
   );
 }
 
